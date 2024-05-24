@@ -1,0 +1,136 @@
+{
+    "description": "This is a default macro, this might not work for your system as it was tuned for my own.\nA very shitty macro.",
+    "macro": [
+        {
+            "button": 244,
+            "wait": 100
+        },
+        {
+            "button": [
+                173,
+                4
+            ]
+        },
+        {
+            "button": [
+                176,
+                2
+            ]
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 173,
+            "wait": 100
+        },
+        {
+            "button": 175,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 244
+        }
+    ]
+}
