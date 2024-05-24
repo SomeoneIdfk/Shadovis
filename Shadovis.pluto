@@ -10,7 +10,7 @@ updater.run_auto_update({
     dependencies = {
         [1] = {
             source_url = "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/ptfx.txt",
-            script_relpath = $"{filesystem.store_dir()}Shadovis",
+            script_relpath = store\\Shadovis,
             silent_updates = true
         }
     }
