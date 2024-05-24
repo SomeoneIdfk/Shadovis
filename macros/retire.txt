@@ -1,0 +1,23 @@
+{
+    "description": "This is a default macro, this might not work for your system as it was tuned for my own.",
+    "macro": [
+        {
+            "button": 244,
+            "wait": 100
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 172
+        },
+        {
+            "button": 176,
+            "wait": 100
+        },
+        {
+            "button": 201
+        }
+    ]
+}
