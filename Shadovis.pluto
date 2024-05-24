@@ -1,16 +1,14 @@
 util.ensure_package_is_installed("lua/auto-updater")
-local updater = require("auto-updater")
+local updater, main_url = require("auto-updater"), "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/"
 
 updater.run_auto_update({
-    source_url = "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/Shadovis.pluto",
+    source_url = $"{main_url}Shadovis.pluto",
     project_url = "https://github.com/SomeoneIdfk/Shadovis",
-    script_relpath = SCRIPT_RELPATH,
-    branch = "main",
     restart_delay = 5000,
     dependencies = {
         [1] = {
-            source_url = "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/ptfx.txt",
-            script_relpath = store\\Shadovis,
+            source_url = $"{main_url}ptfx_list.txt",
+            script_relpath = "store\\Shadovis\\ptfx.txt",
             silent_updates = true
         }
     }
