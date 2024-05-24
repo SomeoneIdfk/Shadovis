@@ -3,8 +3,9 @@ local updater, main_url = require("auto-updater"), "https://raw.githubuserconten
 
 updater.run_auto_update({
     source_url = $"{main_url}Shadovis.pluto",
-    project_url = "https://github.com/SomeoneIdfk/Shadovis",
+    script_relpath = SCRIPT_RELPATH,
     restart_delay = 5000,
+    check_interval = 0,
     dependencies = {
         [1] = {
             source_url = $"{main_url}ptfx_list.txt",
