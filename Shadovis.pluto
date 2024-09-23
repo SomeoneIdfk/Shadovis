@@ -2,7 +2,7 @@
 -- @pluto_warnings disable-unreachable-code
 
 script_start = false
-local stand_version, game_version, lua_version, main_url, main_path = "24.9.4", "1.69-3323", "0.14-alpha", "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/", $"{filesystem.store_dir()}Shadovis\\"
+local stand_version, game_version, lua_version, main_url, main_path = "24.9.5", "1.69-3323", "0.14-alpha", "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/", $"{filesystem.store_dir()}Shadovis\\"
 
 for i = 1, 100 do
     if i == 100 then util.stop_script() end
@@ -75,7 +75,7 @@ detections = {
     tranq = {name = "Tranquilizer", description = "", severity = 100, options = {notify = 1, log = 4, console = 4, allchat = 4, teamchat = 4}, spam = 3}
 }
 ignored_detections, generic_detections = {"Shadovis Developer", "Stand User", "Blocking Love Letters", "Rockstar Anti Cheat"}, {}
-local all_detections, malicious_events = {[1] = "Bypassed Message Filter"}, {}
+local all_detections, malicious_events = {[1] = "Bypassed Message Filter"}, {"Bounty Spam"}
 local queues = {}
 local kicks = {nonhostashost = {[1] = {name = "Smart", description = "Removes the player by any means necessary.", cooldown = 15}, [2] = {name = "Blacklist", description = "Acts like a vote kick, but kicks like a desync.", cooldown = 5}, [3] = {name = "Host", description = "Kicks the player using the vote kick mechanism.\nUnblockable when you are the host.", cooldown = 15}, [4] = {name = "Love Letter", description = "Unblockable when you are the host.", cooldown = 10}, [5] = {name = "Orgasm", description = "Blocked by popular menus.", cooldown = 10}}, hostasnonhost = {[1] = {name = "Smart", description = "Removes the player by any means necessary.", cooldown = 15}, [2] = {name = "Pool's Closed", description = "Blocked by popular menus.", cooldown = 15}, [3] = {name = "Host", description = "Kicks the player using the vote kick mechanism.", cooldown = 15}, [4] = {name = "Non-Host", description = "Blocked by most menus.", cooldown = 15}}, nonhostasnonhost = {[1] = {name = "Smart", description = "Removes the player by any means necessary.", cooldown = 15}, [2] = {name = "Love Letter", description = "Can be blocked if the host is blocking them for you.", cooldown = 15}, [3] = {name = "Orgasm", description = "Blocked by popular menus.", cooldown = 10}, [4] = {name = "Host", description = "Kicks the player using the vote kick mechanism.", cooldown = 15}}}
 local crashes = {[menu_version > 1 ? 2 : 1] = {name = "Elegant", description = "If this crash doesn't work, it's unlikely the others will.", cooldown = 5}}
@@ -399,6 +399,7 @@ if menu_version > 1 then
     crashes[1], crashes[3], crashes[4] = {name = "All", description = "Tries all crashes from most likely to least likely.", cooldown = 15}, {name = "Burger King Foot Lettuce", description = "", cooldown = 5}, {name = "Vehicular Manslaughter", description = "", cooldown = 15}
 end
 if menu_version > 2 then
+    kicks.nonhostashost[6], kicks.nonhostashost[7] = {name = "BattlEye Kick", description = "Kicks the player using the vote kick mechanism much like the Host kick would.", cooldown = 0}, {name = "BattlEye Ban", description = "Requires the affected player to restart their game.", cooldown = 0}
     crashes[5] = {name = "Steamroller", description = "", cooldown = 10}
 end
 
@@ -5108,7 +5109,8 @@ function tick_handlers.player_main.func()
                 directx.draw_text_client(dimensions.x.low + (scale_player_name < minimum_scale ? box_width / 2 : 0) - (scale_player_name > minimum_scale and bar == 2 ? 1 / screen_dimensions.x * 10 : 0), dimensions.y.low - (bar == 5 ? 1 / screen_dimensions.y * 10 : 0), player.name, scale_player_name < minimum_scale ? ALIGN_BOTTOM_CENTRE : ALIGN_BOTTOM_LEFT, general_text_scale, colour.r, colour.g, colour.b, colour.a, false)
             end
             if is_different and (!visible_only or visible) and commandrefs[4].esphealth.value then
-                local text = $"Health: {GET_ENTITY_HEALTH(players.get_ped(player_id))} / {GET_ENTITY_MAX_HEALTH(players.get_ped(player_id))}"
+                local hp, max_hp = GET_ENTITY_HEALTH(players.get_ped(player_id)), GET_ENTITY_MAX_HEALTH(players.get_ped(player_id))
+                local text = $"Health: {(hp > 100 and hp - 100 or hp)} / {(max_hp > 100 and max_hp - 100 or max_hp)}"
 
                 local scale_text = directx.get_scale_for_text_width(text, box_width) * 0.95
                 scale_text = scale_text < minimum_scale ? minimum_scale : scale_text > general_text_scale ? general_text_scale : scale_text
@@ -5266,7 +5268,7 @@ function tick_handlers.player_main.func()
                 execute_modules("on_spawn", nil, player_id)
             end
             player.dead = false
-            if !player.antitp.timeout.state and GET_PED_MAX_HEALTH(players.get_ped(player_id)) == 0 then
+            if !player.antitp.timeout.state and GET_PED_MAX_HEALTH(players.get_ped(player_id)) <= 100 then
                 do_affected_detection(player_id, "undeadotr")
             end
 
@@ -5309,6 +5311,10 @@ function tick_handlers.player_main.func()
                 util.remove_blip(player.otr.blip)
                 player.otr.blip = nil
             end
+        end
+
+        if player.ped_health < entities.get_health(players.get_ped(player_id)) then
+            player.ped_health = entities.get_health(players.get_ped(player_id))
         end
 
         local personal_vehicle = players.get_personal_vehicle(player_id)
@@ -5357,7 +5363,8 @@ function tick_handlers.player_death.func()
         local player_id, killer_id = NETWORK_GET_PLAYER_INDEX_FROM_PED(victim), NETWORK_GET_PLAYER_INDEX_FROM_PED(attacker)
 
         if player_id != -1 then
-            damage = shadovis(player_id).ped_health == 0 or damage < shadovis(player_id).ped_health ? damage : shadovis(player_id).ped_health
+            local hp = shadovis(player_id).ped_health
+            damage = hp == 0 or damage < hp ? damage : (hp > 100 and hp - 100 or hp)
             shadovis(player_id).ped_health = entities.get_health(victim)
         end
 
