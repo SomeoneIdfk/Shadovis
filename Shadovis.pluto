@@ -2,7 +2,7 @@
 -- @pluto_warnings disable-unreachable-code
 
 script_start = false
-local stand_version, game_version, lua_version, main_url, main_path = "24.9.5", "1.69-3323", "0.14-alpha", "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/", $"{filesystem.store_dir()}Shadovis\\"
+local stand_version, game_version, lua_version, main_url, main_path = "24.9.5", "1.69-3337", "0.14-alpha", "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/", $"{filesystem.store_dir()}Shadovis\\"
 
 for i = 1, 100 do
     if i == 100 then util.stop_script() end
@@ -3505,6 +3505,8 @@ commandrefs[4].root_player_esp:colour("Health Bar Background Colour", {"esphpbar
 commandrefs[4].root_autohostdlc = commandrefs[4].root_online:list("Auto Kick Host DLC", {}, "This extends the capabilities of \"Online > Spoofing > Host Token Spoofing > Kick Host When Joining As Next In Queue\".")
 
 commandrefs[4].autohostdlcstate = commandrefs[4].root_autohostdlc:toggle_loop("Enable DLC", {}, "", function()
+    do return end
+
     if menu_version != 3 then
         util.notify("You need Ultimate to use this feature. :)")
         commandrefs[4].autohostdlcstate.value = false
