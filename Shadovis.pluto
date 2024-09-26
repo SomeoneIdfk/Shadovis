@@ -2,7 +2,7 @@
 -- @pluto_warnings disable-unreachable-code
 
 script_start = false
-local stand_version, game_version, lua_version, main_url, main_path = "24.9.5", "1.69-3337", "0.14-alpha", "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/", $"{filesystem.store_dir()}Shadovis\\"
+local stand_version, game_version, lua_version, main_url, main_path = "24.9.7", "1.69-3337", "0.14", "https://raw.githubusercontent.com/SomeoneIdfk/Shadovis/main/", $"{filesystem.store_dir()}Shadovis\\"
 
 for i = 1, 100 do
     if i == 100 then util.stop_script() end
@@ -231,7 +231,7 @@ local initialize_globals = {
     }
 }
 local afk = nil
-local allocated_memory = {[1] = memory.alloc(8), [2] = memory.alloc_int(), [3] = memory.alloc(), [4] = memory.alloc_int(), [5] = memory.alloc(1), [6] = memory.alloc_int(), [7] = memory.alloc_int(), [8] = memory.alloc(13 * 8)}
+local allocated_memory = {[1] = memory.alloc(8), [2] = memory.alloc_int(), [3] = memory.alloc(), [4] = memory.alloc_int(), [5] = memory.alloc(1), [6] = memory.alloc_int(), [7] = memory.alloc_int(), [8] = memory.alloc(13 * 8), [9] = memory.alloc(), [10] = memory.alloc()}
 local tick_handlers = {commandref_positions = {}, player_main = {}, player_teleport = {}, player_death = {}, detection_memory = {}, vehicle = {}, session = {}, vks = {filelisttime = 0, fileupdatetimes = {}}}
 local my_chat_messages = {}
 local module_functions = {        -- you can look at modules I made to understand this mess lmao
@@ -287,16 +287,30 @@ local patterns = {
     SCI = "48 8B D3 48 8D 4C 24 ? 48 69 D2"
 }
 local scauth = {pointer = nil, ticket = nil}
-local ihatebe = {player_id = nil, sss = nil, wsc = nil, ss = nil, sc = nil}
+local ihatebe = {player_id = nil, sss = nil, wsc = nil, ss = nil, sc = nil, cijws = nil, freeze_session_id = false}
+local hitkill_effects = {kill_objects = {}}
 
 
 
-function read_file(path: string, default_response: ?string = ""): string
-    return filesystem.exists(path) and filesystem.is_regular_file(path) and io.contents(path) or default_response
+function io.fileextension(path: string): string
+    path = path:contains("\\") ? {path:partition("\\", true)}[2] : path
+    return path:contains(".") ? {path:partition(".", true)}[2] : path
 end
 
-function write_file(path: string, content: string): bool
-    return !filesystem.is_regular_file(path) or filesystem.is_regular_file(path) ? io.contents(path, content) or true : false 
+function io.filename(path: string): string
+    path = path:contains("\\") ? {path:partition("\\", true)}[2] : path
+    return path:contains(".") ? {path:partition(".", true)}[1] : path
+end
+
+function read_file(path: string, default_response: ?string = ""): string
+    if !filesystem.exists(path) or !filesystem.is_regular_file(path) then return default_response end
+    local content = io.contents(path)
+    return content != "" and content or default_response
+end
+
+function write_file(path: string, content: string): void
+    if io.fileextension(path) != "temp" then io.contents($"{path}.temp", content) end
+    io.contents($"{path}", content)
 end
 
 for index, data in initialize_globals do
@@ -376,6 +390,32 @@ if filesystem.exists($"{main_path}fake_friends.txt") and filesystem.is_regular_f
     write_file($"{main_path}players.txt", json.encode(playerinfo, false))
 end
 
+do -- check if players.txt might be corrupted
+    local file_output_1, file_output_2 = json.decode(read_file($"{main_path}players.txt", "{}")), json.decode(read_file($"{main_path}players.txt.temp", "{}"))
+    if file_output_1 == nil and (file_output_2 == nil or !(filesystem.exists($"{main_path}players.txt.temp") and filesystem.is_regular_file($"{main_path}players.txt.temp"))) then
+        write_file($"{main_path}players.txt", json.encode({}, false))
+        util.toast("[SHADOVIS] Data from players.txt is unrecoverable. Overwriting it to prevent further issues.", TOAST_DEFAULT|TOAST_CONSOLE)
+    elseif file_output_1 == nil then
+        write_file($"{main_path}players.txt", json.encode(file_output_2, false))
+        util.toast("[SHADOVIS] Data from players.txt got corrupted. Overwriting it with a backup to prevent further issues.", TOAST_DEFAULT|TOAST_CONSOLE)
+    elseif file_output_2 == nil or !(filesystem.exists($"{main_path}players.txt.temp") and filesystem.is_regular_file($"{main_path}players.txt.temp")) then
+        write_file($"{main_path}players.txt.temp", json.encode(file_output_1, false))
+    end
+end
+
+do -- check if third_party_detections.txt might be corrupted
+    local file_output_1, file_output_2 = json.decode(read_file($"{main_path}third_party_detections.txt", "{}")), json.decode(read_file($"{main_path}third_party_detections.txt.temp", "{}"))
+    if file_output_1 == nil and (file_output_2 == nil or !(filesystem.exists($"{main_path}third_party_detections.txt.temp") and filesystem.is_regular_file($"{main_path}third_party_detections.txt.temp"))) then
+        write_file($"{main_path}third_party_detections.txt", json.encode({}, false))
+        util.toast("[SHADOVIS] Data from third_party_detections.txt is unrecoverable. Overwriting it to prevent further issues.", TOAST_DEFAULT|TOAST_CONSOLE)
+    elseif file_output_1 == nil then
+        write_file($"{main_path}third_party_detections.txt", json.encode(file_output_2, false))
+        util.toast("[SHADOVIS] Data from third_party_detections.txt got corrupted. Overwriting it with a backup to prevent further issues.", TOAST_DEFAULT|TOAST_CONSOLE)
+    elseif file_output_2 == nil or !(filesystem.exists($"{main_path}third_party_detections.txt.temp") and filesystem.is_regular_file($"{main_path}third_party_detections.txt.temp")) then
+        write_file($"{main_path}third_party_detections.txt.temp", json.encode(file_output_1, false))
+    end
+end
+
 local playerinfo = json.decode(read_file($"{main_path}players.txt", "{}"))
 local possible_detections = json.decode(read_file($"{main_path}third_party_detections.txt", "{}"))
 
@@ -448,17 +488,6 @@ local function hash_string(text: string): ?int
     end
     return hashes[text]
 end
-
-function io.fileextension(path: string): string
-    path = path:contains("\\") ? {path:partition("\\", true)}[2] : path
-    return path:contains(".") ? {path:partition(".", true)}[2] : path
-end
-
-function io.filename(path: string): string
-    path = path:contains("\\") ? {path:partition("\\", true)}[2] : path
-    return path:contains(".") ? {path:partition(".", true)}[1] : path
-end
-
 
 function math.round(number: number, decimal: ?int = 0): number
     return math.floor(number * (10 ^ decimal) + 0.5) / (10 ^ decimal)
@@ -623,6 +652,10 @@ end
 
 function memory.subtract(address: int, value: int, memory_type: ?string = "int"): void
     memory[$"write_{memory_type}"](address, memory[$"read_{memory_type}"](address) & ~value)
+end
+
+function util.session_code(): ?string
+    return {util.get_session_code()}[2]
 end
 
 function util.notify(input: string|int, log: ?bool = false, console: ?bool = false, toast: ?bool = true): void
@@ -1035,10 +1068,11 @@ function sc.get_auth_ticket(): ?string
     end return scauth.ticket
 end
 
-function sc.get_rockstar_id_from_name(name: string): ?int
+function sc.get_rockstar_id_from_name(name: string, cache: ?bool = true): ?int
     name = name:lower()
 
     for playerinfo as player_information do
+        if !cache then break end
         if !player_information?.name or name != player_information.name:lower() then continue end
         return player_information.rockstar_id, player_information?.name
     end
@@ -1054,8 +1088,8 @@ function sc.get_rockstar_id_from_name(name: string): ?int
     return response.Accounts[1].RockstarId, response.Accounts[1].Nickname
 end
 
-function sc.get_name_from_rockstar_id(rockstar_id: int): ?string
-    if playerinfo[rockstar_id]?.name then return playerinfo[rockstar_id].name, rockstar_id end
+function sc.get_name_from_rockstar_id(rockstar_id: int, cache: ?bool = true): ?string
+    if playerinfo[rockstar_id]?.name and cache then return playerinfo[rockstar_id].name, rockstar_id end
 
     local auth_ticket = sc.get_auth_ticket()
     if !auth_ticket then
@@ -2026,10 +2060,31 @@ function play_sound_file(file_path: string, wait_for_finish: ?bool = false): boo
     end return false
 end
 
+function get_pftx_effect(index: int)
+    -- we do all this shit just to get different dictionaries when options have the same name
+    local duplicates, filter, start_index, selected_index = 0, {}, 0, 0
+    for i = 1, #ptfx_effects.small do
+        if ptfx_effects.small[i] != ptfx_effects.small[index] then continue end
+        start_index, selected_index = start_index == 0 and i or start_index, i == index ? i : selected_index
+    end
+
+    local position = selected_index - start_index + 1
+    for dictionary, effects in ptfx_effects.full do
+        for effects as effect do
+            if effect != ptfx_effects.small[index] then continue end
+            filter[#filter + 1] = dictionary
+            ++duplicates
+            if #filter == position then break 2 end
+        break end
+    end
+
+    return filter[position], ptfx_effects.small[index]
+end
+
 
 
 for i = 0, 31 do
-    local player = {player_id = i, ready = false, first_seen = 0, last_seen = 0, name = "", actual_name = nil, rockstar_id = nil, ip = nil, port = nil, friend = nil, crew = nil, root_classification = nil, root_history = nil, vpn = nil, kick_active = nil, crash_active = nil, blockingloveletters = nil, kills = 0, deaths = 0, ping = {}, packet_loss = {}, unstable = {state = nil, amount = 0, timeout = 0}, otr = {active = nil, time = nil, blip = nil}, dead = nil, antitp = {position = nil, nearby = nil, interior = {state = nil, time = 0}, cutscene = {state = nil, time = 0}, dead = {state = nil, time = 0}, transition = {state = nil, time = 0}, timeout = {state = nil, time = 0, ref_time = 0}, vehicle = {state = nil, last_state = nil, vehicle = nil, last_vehicle = nil, time = 0}, attached = {state = nil, time = 0}}, ghost = nil, shghosted = nil, ghosted = nil, toggle_loops = {}, blockedjoin = nil, vehicletakeover = 0, ped_health = 0, hostshare = 0, detections = {}, commandrefs = {}, stand_user = false, personal_vehicle = nil, previous_personal_vehicle = nil, org_manage_delay = 0}
+    local player = {player_id = i, ready = false, first_seen = 0, last_seen = 0, name = "", actual_name = nil, rockstar_id = nil, ip = nil, port = nil, friend = nil, crew = nil, root_classification = nil, root_history = nil, vpn = nil, kick_active = nil, crash_active = nil, blockingloveletters = nil, kills = 0, deaths = 0, ping = {}, packet_loss = {}, unstable = {state = nil, amount = 0, timeout = 0}, otr = {active = nil, time = nil, blip = nil}, dead = nil, antitp = {position = nil, nearby = nil, interior = {state = nil, time = 0}, cutscene = {state = nil, time = 0}, dead = {state = nil, time = 0}, transition = {state = nil, time = 0}, timeout = {state = nil, time = 0, ref_time = 0}, vehicle = {state = nil, last_state = nil, vehicle = nil, last_vehicle = nil, time = 0}, attached = {state = nil, time = 0}}, ghost = nil, shghosted = nil, ghosted = nil, toggle_loops = {}, blockedjoin = nil, vehicletakeover = 0, ped_health = 0, hostshare = 0, detections = {}, commandrefs = {}, stand_user = nil, personal_vehicle = nil, previous_personal_vehicle = nil, org_manage_delay = 0, no_syncs = nil}
 
     function player:ready_data(): void
         self.first_seen, self.last_seen = util.current_time_millis(), 0
@@ -2093,6 +2148,7 @@ for i = 0, 31 do
             all_players[self.rockstar_id].history_root = self:history_root()
         end
 
+        self.no_syncs = false
         self.blockedjoin = self:blocked_join()
         self.ready = true
     end
@@ -2566,7 +2622,16 @@ commandrefs[4].root:action("Detach", {"detach"}, "", function()
     util.notify(successfulcommand)
 end).visible = false
 
-commandrefs[4].ihatebe = commandrefs[4].root:list_select("Anti BattlEye Kick", {}, "This only works if you're not the host.\nThis will block syncs and network events to the host.", {{1, "Disabled"}, {2, "First Host", {}, "Will stop working if the host changes."}, {3, "Auto Rejoin", {}, "Will automatically rejoin incase the host changes."}}, 1, function() end)
+commandrefs[4].root_ihatebe = commandrefs[4].root:list("Anti BattlEye Kick", {}, "")
+
+commandrefs[4].ihatebesyncqueue = commandrefs[4].root_ihatebe:slider("No Sync Queue", {}, "Will block the specified amount of players in the host queue, so you don't have to rejoin.", 0, 5, 0, 1, function() end)
+commandrefs[4].ihatebesyncqueue:addValueReplacement(0, "Disabled")
+
+commandrefs[4].ihateberejoin = commandrefs[4].root_ihatebe:toggle("Automatically Rejoin", {}, "Rejoins the session if the host changes and received syncs.", function() end)
+
+commandrefs[4].ihatebeignoremodders = commandrefs[4].root_ihatebe:toggle("Ignore Modders", {}, "", function() end)
+
+commandrefs[4].ihatebeignorefriends = commandrefs[4].root_ihatebe:toggle("Ignore Friends", {}, "Your friend needs to be modding for you not to be kicked.", function() end)
 
 commandrefs[4].root_self = commandrefs[4].root:list("Self", {}, "")
 
@@ -2654,9 +2719,37 @@ commandrefs[4].skeleton = commandrefs[4].root_skeleton:toggle("Draw", {}, "", fu
 
 commandrefs[4].root_skeleton:colour("Colour", {}, "", colours.skeleton, true, function(state) colours.skeleton = state end):inline_rainbow()
 
-commandrefs[4].hitsound = commandrefs[4].root_self:list_select("Hit Sound", {}, "", {{1, "Disabled"}}, 1, function() end)
+commandrefs[4].root_effects = commandrefs[4].root_self:list("Effects", {}, "")
 
-commandrefs[4].killsound = commandrefs[4].root_self:list_select("Kill Sound", {}, "", {{1, "Disabled"}}, 1, function() end)
+commandrefs[4].root_effects:divider("Hit Effects")
+
+commandrefs[4].hitsound = commandrefs[4].root_effects:list_select("Hit Sound", {}, "", {{1, "Disabled"}}, 1, function() end)
+
+commandrefs[4].hitparticle = commandrefs[4].root_effects:list_select("Hit Particle", {}, "", menu.table_to_list(ptfx_effects.small, "None"), 1, function() end)
+
+commandrefs[4].hitparticlescale = commandrefs[4].root_effects:slider_float("Hit Particle Scale", {}, "", 10, 1000, 100, 5, function() end)
+
+commandrefs[4].root_effects:divider("Kill Effects")
+
+commandrefs[4].killsound = commandrefs[4].root_effects:list_select("Kill Sound", {}, "", {{1, "Disabled"}}, 1, function() end)
+
+commandrefs[4].killparticle = commandrefs[4].root_effects:list_select("Kill Particle", {}, "", menu.table_to_list(ptfx_effects.small, "None"), 1, function() end)
+
+commandrefs[4].killparticlescale = commandrefs[4].root_effects:slider_float("Kill Particle Scale", {}, "", 10, 1000, 100, 5, function() end)
+
+commandrefs[4].root_killobject = commandrefs[4].root_effects:list("Kill Object", {}, "")
+
+commandrefs[4].killobjectmodel = commandrefs[4].root_killobject:text_input("Model", {"killobjectmodel"}, "", function(state)
+    if state != "" and !IS_MODEL_VALID(util.joaat(state)) then
+        commandrefs[4].killobjectmodel:trigger("m23_1_prop_m31_gravestones_01a")
+        menu.show_command_box("killobjectmodel "..state)
+        util.notify("This model is invalid.")
+    end
+end, "m23_1_prop_m31_gravestones_01a")
+
+commandrefs[4].killobjectplaceonground = commandrefs[4].root_killobject:toggle("Place On Ground", {}, "", function() end, true)
+
+commandrefs[4].killobjectttl = commandrefs[4].root_killobject:slider("Time To Live", {}, "", 1, 5, 3, 1, function() end)
 
 commandrefs[4].root_vehicle = commandrefs[4].root:list("Vehicle", {}, "")
 
@@ -3502,87 +3595,6 @@ commandrefs[4].root_player_esp:colour("Health Bar Colour", {"esphpbarcolour"}, "
 
 commandrefs[4].root_player_esp:colour("Health Bar Background Colour", {"esphpbarbackgroundcolour"}, "", colours.playeresphpbarbackground, true, function(state) colours.playeresphpbarbackground = state end):inline_rainbow()
 
-commandrefs[4].root_autohostdlc = commandrefs[4].root_online:list("Auto Kick Host DLC", {}, "This extends the capabilities of \"Online > Spoofing > Host Token Spoofing > Kick Host When Joining As Next In Queue\".")
-
-commandrefs[4].autohostdlcstate = commandrefs[4].root_autohostdlc:toggle_loop("Enable DLC", {}, "", function()
-    do return end
-
-    if menu_version != 3 then
-        util.notify("You need Ultimate to use this feature. :)")
-        commandrefs[4].autohostdlcstate.value = false
-    return end
-
-    local function is_player_viable(player_id: int): bool
-        if !players.exists(player_id) then return false end
-        local player = shadovis(player_id)
-        return !(
-            menu.rbp("Online>Spoofing>Host Token Spoofing>Kick Host When Joining As Next In Queue>Exclude Friends").value and (player.friend or player:fakefriend()) or
-            menu.rbp("Online>Spoofing>Host Token Spoofing>Kick Host When Joining As Next In Queue>Exclude Crew Members").value and player.crew or
-            menu.rbp("Online>Spoofing>Host Token Spoofing>Kick Host When Joining As Next In Queue>Exclude Stand Users").value and players.is_stand_user(player_id) or
-            menu.rbp("Online>Spoofing>Host Token Spoofing>Kick Host When Joining As Next In Queue>Exclude Organisation Members").value and player:is_org_member() or
-            menu.rbp("Online>Spoofing>Host Token Spoofing>Kick Host When Joining As Next In Queue>Exclude Modders").value and players.is_marked_as_modder(player_id) or
-            menu.rbp("Online>Spoofing>Host Token Spoofing>Kick Host When Joining As Next In Queue>Exclude Likely Modders").value and players.is_marked_as_likely_modder(player_id)
-        )
-    end
-
-    local host = players.get_host()
-    if !util.in_session() or util.in_activity() or !IS_PLAYER_CONTROL_ON(players.user()) or players.user() == host or players.get_host_queue_position(players.user()) != 1 and players.get_host_queue_position(players.user()) > commandrefs[4].autohostdlcqueuesize.value or !players.exists(host) or !shadovis(host).ready then return end
-    if players.get_host_queue_position(players.user()) == 1 then
-        local player = shadovis(host)
-        repeat
-            util.yield()
-        until players.get_host_queue_position(players.user()) == 0
-
-        local total_players_1, total_players_2 = 0, 0
-        for i = 1, 2 do
-            for player_list as player_data do
-                if player_data.player_id == player.player_id or player_data.player_id == players.user() then continue end
-                if i == 1 and (util.current_time_millis() - player_data.last_seen) < 500 then
-                    ++total_players_1
-                elseif i == 2 and players.exists(player_data.player_id) then
-                    ++total_players_2
-                end
-            end
-        end
-        local entropy_chance = (100 / (total_players_1 > 0 ? total_players_1 : 1) * (total_players_2 > 0 ? total_players_2 : 1))
-        entropy_chance = entropy_chance > 100 ? 100 : entropy_chance
-        local entropy = entropy_chance >= 50
-
-        if entropy and commandrefs[4].autohostdlcinvite.value == 2 then
-            if menu.rbrp(player:history_root(), "Invite To Session"):isValid() then
-                menu.rbrp(player:history_root(), "Invite To Session"):trigger()
-            elseif menu.rbp("Online>Rockstar ID Tools>Invite To Session By RID"):isValid() then
-                menu.rbp("Online>Rockstar ID Tools>Invite To Session By RID"):trigger($"{player.rockstar_id}")
-            else
-                util.notify($"Couldn't invite {player.name} back to the session.")
-            end
-        end
-    return end
-
-    local state = true
-    for players.get_host_queue() as player_id do
-        if player_id == host then continue end
-        if !state or player_id == players.user() then break end
-        state = is_player_viable(player_id)
-    end
-    if !state then return end
-
-    local player = shadovis(players.get_host_queue()[2])
-    if player.player_id != players.user() and player:kick(false, true, false) and commandrefs[4].autohostdlcinvite.value == 3 then
-        if menu.rbrp(player:history_root(), "Invite To Session"):isValid() then
-            menu.rbrp(player:history_root(), "Invite To Session"):trigger()
-        elseif menu.rbp("Online>Rockstar ID Tools>Invite To Session By RID"):isValid() then
-            menu.rbp("Online>Rockstar ID Tools>Invite To Session By RID"):trigger($"{player.rockstar_id}")
-        else
-            util.notify($"Couldn't invite {player.name} back to the session.")
-        end
-    end
-end)
-
-commandrefs[4].autohostdlcinvite = commandrefs[4].root_autohostdlc:list_select("Invite Kicked Players", {}, "", {{1, "Disabled"}, {2, "Previous Host"}, {3, "All Players"}}, 1, function() end)
-
-commandrefs[4].autohostdlcqueuesize = commandrefs[4].root_autohostdlc:slider("Clean Queue", {""}, "", 0, 3, 0, 1, function() end)
-
 commandrefs[4].root_removed_players = commandrefs[4].root_online:list("Removed Players", {}, "", function()
     for all_players as player do
         if !player.removed then continue end
@@ -3809,21 +3821,16 @@ commandrefs[4].hotkeytextscale = commandrefs[4].root_hotkeys:slider_float("Text 
 commandrefs[4].root_settings:action("Add Missing Fake Friends", {}, "Adds missing fake friends to the player history.", function()
     local succeeded, failed = 0, 0
     for playerinfo as player_information do
-        if !player_information?.friend or !player_information?.name or menu.ref_player_history(player_information.name):isValid() then continue end
+        if !player_information?.friend or player_information?.name and menu.ref_player_history(player_information.name):isValid() then continue end
+        local name = sc.get_name_from_rockstar_id(player_information.rockstar_id, false)
+        if !name then continue end
+        playerinfo[player_information.rockstar_id].name = name
+        if menu.ref_player_history(player_information.name):isValid() then continue end
         menu.rbp("Online>Player History>Meta>Add Player By RID"):trigger(player_information.rockstar_id)
-        local result = util.wait_time(3, function()
+        if util.wait_time(3, function()
             util.draw_debug_text($"Attempting to add {player_information.name} to player history.")
             return menu.ref_player_history(player_information.name):isValid()
-        end)
-        if result then
-            util.notify($"Attempting to add them by name instead.")
-            menu.rbp("Online>Player History>Meta>Add Player By Name"):trigger(player_information.name)
-            result = util.wait_time(3, function()
-                util.draw_debug_text($"Attempting to add {player_information.name} to player history.")
-                return menu.ref_player_history(player_information.name):isValid()
-            end)
-        end
-        if result then
+        end) then
             ++failed
             util.notify($"Failed to add {player_information.name} to player history.")
         else ++succeeded end
@@ -3838,6 +3845,8 @@ commandrefs[4].root_credits_someoneidfk = commandrefs[4].root_credits:list("Deve
 commandrefs[4].root_credits_someoneidfk:hyperlink("Discord", "https://discord.com/users/540462670575566848", "")
 
 commandrefs[4].root_credits_someoneidfk:hyperlink("Discord Server", "https://discord.gg/N2HrRVNQCB", "")
+
+commandrefs[4].root_credits_someoneidfk:hyperlink("Github", "https://github.com/SomeoneIdfk/Shadovis", "")
 
 commandrefs[4].root_credits_ilana = commandrefs[4].root_credits:list("Tester - ilana", {}, "")
 
@@ -3895,7 +3904,7 @@ players.on_join(function(player_id)
     if !players.exists(player_id) then return end
 
     if player_id == players.user() then
-        ++session
+        if !ihatebe.freeze_session_id then ++session end
         write_file($"{main_path}players.txt", json.encode(playerinfo, false))
         tick_handlers.vks.fileupdatetimes["players"] = util.current_unix_time_seconds()
     elseif all_players[player.rockstar_id].seen_first == 0 then
@@ -4067,6 +4076,8 @@ players.add_command_hook(function(player_id, player_root)
     player_root = player_root:isValid() ? player_root : menu.pr(player_id)
 
     if !players.exists(player_id) then return end
+
+    menu.rbrp(player_root, "Information>Name Hash"):attachAfter(menu.shadow_root():readonly("Host Token", players.get_host_token_hex(player_id)))
 
     if player_id != players.user() then
         local shghosted = menu.rbrp(player_root, "Information>Status>Session Player ID / Slot"):attachAfter(menu.shadow_root():readonly("Shadovis Ghosted", "N/A"))
@@ -4835,9 +4846,18 @@ util.on_pre_stop(function()
         end
     end
 
+    for hitkill_effects.kill_objects as object do
+        if !DOES_ENTITY_EXIST(object) then continue end
+        entities.delete(object)
+    end
+
     for players.list_except(true) as player_id do
-        if shadovis(player_id).shghosted or shadovis(player_id).ghosted then
+        local player = shadovis(player_id)
+        if player.shghosted or player.ghosted then
             SET_REMOTE_PLAYER_AS_GHOST(player_id, players.is_passive_mode(players.user()) or players.is_passive_mode(player_id))
+        end
+        if player.no_syncs then
+            menu.rbrp(menu.pr(player_id), "Outgoing Syncs>Block").value = false
         end
     end
 
@@ -5197,17 +5217,17 @@ function tick_handlers.player_main.func()
             local vehicle = commandrefs[4].ghostvehiclegodmode.value and players.get_vehicle(player_id, false)
             local vehicle_hash = commandrefs[4].ghostmk2.value and players.get_vehicle_model(player_id)
             local state = !util.in_activity() and (commandrefs[4].ghostplayers.value == 2 or commandrefs[4].ghostplayers.value == 3 and !(player.friend or player:fakefriend()) or commandrefs[4].ghostplayers.value == 4 and (player.friend or player:fakefriend()) or commandrefs[4].ghostgodmode.value and players.in_godmode(player_id) or vehicle and entities.is_vehicle_indestructible(vehicle, false) or vehicle_hash and vehicle_hash == util.joaat("oppressor2"))
-            local override = player.ghost or !player:is_org_member() and (players.is_passive_mode(players.user()) or players.is_passive_mode(player_id))
+            local override = player.ghost or !player:is_org_member() and (players.is_passive_mode(players.user()) or players.is_passive_mode(player_id) or player.no_syncs)
             SET_REMOTE_PLAYER_AS_GHOST(player_id, override or state)
             player.shghosted, player.ghosted = state, override
         elseif player.shghosted or player.ghosted then
-            SET_REMOTE_PLAYER_AS_GHOST(player_id, players.is_passive_mode(players.user()) or players.is_passive_mode(player_id))
+            SET_REMOTE_PLAYER_AS_GHOST(player_id, players.is_passive_mode(players.user()) or players.is_passive_mode(player_id) or player.no_syncs)
             player.shghosted, player.ghosted = false, false
         end
 
         if player_id == players.user() and commandrefs[4].forceorg.value != 1 then
             local org_type, boss = players.get_org_type(players.user()), players.get_boss(players.user())
-            if boss == -1 and #players.get_orgs() > 10 then
+            if boss == -1 and #players.get_orgs() >= 9 then
                 for players.list_except(true) as org_id do
                     if players.get_org_type(org_id) == -1 or players.get_boss(org_id) != org_id then continue end
                     memory.write_int(globals[9](org_id), -1)
@@ -5358,6 +5378,34 @@ function tick_handlers.player_teleport.func()
 end
 
 function tick_handlers.player_death.func()
+    if hitkill_effects?.kill_index != commandrefs[4].killparticle.value or hitkill_effects?.kill_scale != commandrefs[4].killparticlescale.value then
+        hitkill_effects.kill_index, hitkill_effects.kill_scale = commandrefs[4].killparticle.value, commandrefs[4].killparticlescale.value
+
+        if hitkill_effects.kill_index != 1 then
+            hitkill_effects.kill_dictionary, hitkill_effects.kill_effect = get_pftx_effect(hitkill_effects.kill_index - 1)
+        else
+            hitkill_effects.kill_dictionary, hitkill_effects.kill_effect = nil, nil
+        end
+    end
+
+    if hitkill_effects?.kill_index and hitkill_effects.kill_index != 1 then
+        if !HAS_NAMED_PTFX_ASSET_LOADED(hitkill_effects.kill_dictionary) then REQUEST_NAMED_PTFX_ASSET(hitkill_effects.kill_dictionary) end
+    end
+
+    if hitkill_effects?.hit_index != commandrefs[4].hitparticle.value or hitkill_effects?.hit_scale != commandrefs[4].hitparticlescale.value then
+        hitkill_effects.hit_index, hitkill_effects.hit_scale = commandrefs[4].hitparticle.value, commandrefs[4].hitparticlescale.value
+
+        if hitkill_effects.hit_index != 1 then
+            hitkill_effects.hit_dictionary, hitkill_effects.hit_effect = get_pftx_effect(hitkill_effects.hit_index - 1)
+        else
+            hitkill_effects.hit_dictionary, hitkill_effects.hit_effect = nil, nil
+        end
+    end
+
+    if hitkill_effects?.hit_index and hitkill_effects.hit_index != 1 then
+        if !HAS_NAMED_PTFX_ASSET_LOADED(hitkill_effects.hit_dictionary) then REQUEST_NAMED_PTFX_ASSET(hitkill_effects.hit_dictionary) end
+    end
+
     for index = 0, GET_NUMBER_OF_EVENTS(1) - 1 do
         if GET_EVENT_AT_INDEX(1, index) != 186 or !GET_EVENT_DATA(1, index, allocated_memory[8], 13) then continue end -- CEventNetworkEntityDamage
 
@@ -5371,6 +5419,41 @@ function tick_handlers.player_death.func()
         end
 
         if killer_id == players.user() and player_id != killer_id and IS_ENTITY_A_PED(victim) and commandrefs[4][died ? "killsound" : "hitsound"].value != 1 then
+            if hitkill_effects?[$"{died ? "kill" : "hit"}_index"] != 1 then
+                if !HAS_NAMED_PTFX_ASSET_LOADED(hitkill_effects[$"{died ? "kill" : "hit"}_dictionary"]) then REQUEST_NAMED_PTFX_ASSET(hitkill_effects[$"{died ? "kill" : "hit"}_dictionary"]) end
+                if HAS_NAMED_PTFX_ASSET_LOADED(hitkill_effects[$"{died ? "kill" : "hit"}_dictionary"]) then
+                    USE_PARTICLE_FX_ASSET(hitkill_effects[$"{died ? "kill" : "hit"}_dictionary"])
+                    START_PARTICLE_FX_NON_LOOPED_AT_COORD(hitkill_effects[$"{died ? "kill" : "hit"}_effect"], GET_ENTITY_COORDS(victim, false), v3.new(), hitkill_effects[$"{died ? "kill" : "hit"}_scale"] / 100, false, false, false)
+                end
+            end
+
+            if died and commandrefs[4].killobjectmodel.value != "" and IS_MODEL_VALID(util.joaat(commandrefs[4].killobjectmodel.value)) then
+                local hash, position, heading = util.joaat(commandrefs[4].killobjectmodel.value), GET_ENTITY_COORDS(victim, false), GET_ENTITY_HEADING_FROM_EULERS(victim)
+
+                util.create_tick_handler(function()
+                    util.request_model(hash)
+                    if HAS_MODEL_LOADED(hash) then
+                        local index = #hitkill_effects.kill_objects + 1
+                        hitkill_effects.kill_objects[index] = entities.create_object(hash, v3.new())
+                        request_entity_control(hitkill_effects.kill_objects[index], 1, false)
+                        SET_ENTITY_COLLISION(hitkill_effects.kill_objects[index], false, false)
+                        FREEZE_ENTITY_POSITION(hitkill_effects.kill_objects[index], true)
+                        SET_ENTITY_HEADING(hitkill_effects.kill_objects[index], heading + 180)
+                        SET_ENTITY_COORDS_NO_OFFSET(hitkill_effects.kill_objects[index], position, false, false, false)
+
+                        if commandrefs[4].killobjectplaceonground.value then
+                            PLACE_OBJECT_ON_GROUND_PROPERLY(hitkill_effects.kill_objects[index])
+                        end
+
+                        util.wait_time(commandrefs[4].killobjectttl.value)
+                        if DOES_ENTITY_EXIST(hitkill_effects.kill_objects[index]) then
+                            entities.delete(hitkill_effects.kill_objects[index])
+                        end
+                    end
+                    return false
+                end)
+            end
+
             play_sound_file($"{main_path}Sounds\\{sounds[commandrefs[4][died ? "killsound" : "hitsound"].value - 1]}.wav")
         end
 
@@ -5472,24 +5555,11 @@ function tick_handlers.vehicle.func()
             previous_vehicle.ptfx.index, previous_vehicle.ptfx.scale = commandrefs[4].ptfxtrailseffect.value, commandrefs[4].ptfxtrailsscale.value
             previous_vehicle.ptfx.flw, previous_vehicle.ptfx.frw, previous_vehicle.ptfx.rlw, previous_vehicle.ptfx.rrw, previous_vehicle.ptfx.exhaust = commandrefs[4].ptfxtrailsflw.value, commandrefs[4].ptfxtrailsfrw.value, commandrefs[4].ptfxtrailsrlw.value, commandrefs[4].ptfxtrailsrrw.value, commandrefs[4].ptfxtrailsexhaust.value
 
-            -- we do all this shit just to get different dictionaries when options have the same name
-            local duplicates, filter, start_index, selected_index = 0, {}, 0, 0
-            for i = 1, #ptfx_effects.small do
-                if ptfx_effects.small[i] != ptfx_effects.small[previous_vehicle.ptfx.index - 1] then continue end
-                start_index, selected_index = start_index == 0 and i or start_index, i == (previous_vehicle.ptfx.index - 1) ? i : selected_index
+            if previous_vehicle.ptfx.index != 1 then
+                previous_vehicle.ptfx.dictionary, previous_vehicle.ptfx.effect = get_pftx_effect(previous_vehicle.ptfx.index - 1)
+            else
+                previous_vehicle.ptfx.dictionary, previous_vehicle.ptfx.effect = nil, nil
             end
-            local position = selected_index - start_index + 1
-
-            for dictionary, effects in ptfx_effects.full do
-                for effects as effect do
-                    if effect != ptfx_effects.small[previous_vehicle.ptfx.index - 1] then continue end
-                    filter[#filter + 1] = dictionary
-                    ++duplicates
-                    if #filter == position then break 2 end
-                break end
-            end
-
-            previous_vehicle.ptfx.dictionary, previous_vehicle.ptfx.effect = previous_vehicle.ptfx.index != 1 ? filter[position] : nil, previous_vehicle.ptfx.index != 1 ? ptfx_effects.small[previous_vehicle.ptfx.index - 1] : nil
         end
         if previous_vehicle.wheel_peds != commandrefs[4].wheel_peds.value or previous_vehicle.wheel_peds_custom != commandrefs[4].wheel_peds_model.value then
             previous_vehicle.wheel_peds, previous_vehicle.wheel_peds_custom = commandrefs[4].wheel_peds.value, commandrefs[4].wheel_peds_model.value
@@ -5574,15 +5644,11 @@ function tick_handlers.vehicle.func()
                         for i = 1, 16 do
                             if entities.get_bone(vehicle, i == 1 ? "exhaust" : $"exhaust_{i}") == nil then break end
                             USE_PARTICLE_FX_ASSET(previous_vehicle.ptfx.dictionary)
-                            if !START_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(previous_vehicle.ptfx.effect, vehicle, v3.new(), v3.new(), entities.get_bone(vehicle, i == 1 ? "exhaust" : $"exhaust_{i}"), previous_vehicle.ptfx.scale / 100, false, false, false) then
-                                util.notify("rate limited", false, false, true)
-                            end
+                            START_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(previous_vehicle.ptfx.effect, vehicle, v3.new(), v3.new(), entities.get_bone(vehicle, i == 1 ? "exhaust" : $"exhaust_{i}"), previous_vehicle.ptfx.scale / 100, false, false, false)
                         end
                     continue end
                     USE_PARTICLE_FX_ASSET(previous_vehicle.ptfx.dictionary)
-                    if !START_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(previous_vehicle.ptfx.effect, vehicle, v3.new(), v3.new(), entities.get_bone(vehicle, bone), previous_vehicle.ptfx.scale / 100, false, false, false) and bone != "wheel_lf" then
-                        util.notify("rate limited", false, false, true)
-                    end
+                    START_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(previous_vehicle.ptfx.effect, vehicle, v3.new(), v3.new(), entities.get_bone(vehicle, bone), previous_vehicle.ptfx.scale / 100, false, false, false)
                 end
                 previous_vehicle.ptfx.interval = util.current_time_millis() + commandrefs[4].ptfxtrailsinterval.value
             end
@@ -5754,32 +5820,53 @@ function tick_handlers.session.func()
         end
     end
 
-    if players.exists(players.get_host()) and players.get_host() != players.user() and commandrefs[4].ihatebe.value != 1 then
-        if commandrefs[4].ihatebe.value == 3 then
-            if ihatebe.player_id != nil and ihatebe.player_id != players.get_host() and players.exists(players.get_host()) and !util.is_session_transition_active() then
-                ihatebe.sss, ihatebe.wsc, ihatebe.ss = menu.rbp("Online>Transitions>Seamless Session Switching>Seamless Session Switching").value, menu.rbp("Online>Transitions>Seamless Session Switching>World State Change"):getState(), menu.ref_by_path("Online>Transitions>Skip Swoop Down").value
-                menu.rbp("Online>Transitions>Seamless Session Switching>Seamless Session Switching").value = true
-                menu.rbp("Online>Transitions>Seamless Session Switching>World State Change"):setState("Deferred")
-                menu.ref_by_path("Online>Transitions>Skip Swoop Down").value = true
-                while !{util.get_session_code()}[2] or ihatebe.sc == {util.get_session_code()}[2] do util.yield() end
-                local sessioncode = {util.get_session_code()}[2]
-                menu.rbp("Online>Session>Be Alone"):trigger()
-                while !{util.get_session_code()}[2] or sessioncode == {util.get_session_code()}[2] do util.yield() end
-                menu.rbp("Online>Session>Session Code>Join Session Via Code"):trigger(sessioncode)
-            elseif ihatebe.sss != nil and ihatebe.wsc != nil and ihatebe.ss != nil and util.in_session() then
-                menu.rbp("Online>Transitions>Seamless Session Switching>Seamless Session Switching").value = ihatebe.sss
-                menu.rbp("Online>Transitions>Seamless Session Switching>World State Change"):setState(ihatebe.wsc)
-                menu.ref_by_path("Online>Transitions>Skip Swoop Down").value = ihatebe.ss
-                ihatebe.sss, ihatebe.wsc, ihatebe.ss = nil, nil, nil
-            end
+    local host_queue = players.get_host_queue(true, true, true)
+    if host_queue[1] != nil and players.exists(host_queue[1]) then
+        if commandrefs[4].ihateberejoin.value and ihatebe.player_id != nil and ihatebe.player_id != host_queue[1] and host_queue[1] != players.user() and !shadovis(host_queue[1]).no_syncs and !util.is_session_transition_active() then
+            ihatebe.freeze_session_id = true
+            ihatebe.sss, ihatebe.wsc, ihatebe.ss, ihatebe.cijws = menu.rbp("Online>Transitions>Seamless Session Switching>Seamless Session Switching").value, menu.rbp("Online>Transitions>Seamless Session Switching>World State Change"):getState(), menu.ref_by_path("Online>Transitions>Skip Swoop Down").value, menu.rbp("Stand>Settings>Session Joining>Check If Join Will Succeed").value
+            menu.rbp("Online>Transitions>Seamless Session Switching>Seamless Session Switching").value = true
+            menu.rbp("Online>Transitions>Seamless Session Switching>World State Change"):setState("Deferred")
+            menu.ref_by_path("Online>Transitions>Skip Swoop Down").value = true
+            menu.rbp("Stand>Settings>Session Joining>Check If Join Will Succeed").value = false
+            while !{util.get_session_code()}[2] or ihatebe.sc == {util.get_session_code()}[2] do util.draw_debug_text("waiting for code to change") util.yield() end
+            local sessioncode = {util.get_session_code()}[2]
+            menu.rbp("Online>Session>Be Alone"):trigger()
+            while !{util.get_session_code()}[2] or sessioncode == {util.get_session_code()}[2] do util.draw_debug_text("waiting") util.yield() end
+            menu.rbp("Online>Session>Session Code>Join Session Via Code"):trigger(sessioncode)
+            util.toast("rejoining")
+        elseif commandrefs[4].ihateberejoin.value and host_queue[1] != players.user() and ihatebe.sss != nil and ihatebe.wsc != nil and ihatebe.ss != nil and util.in_session() then
+            menu.rbp("Online>Transitions>Seamless Session Switching>Seamless Session Switching").value = ihatebe.sss
+            menu.rbp("Online>Transitions>Seamless Session Switching>World State Change"):setState(ihatebe.wsc)
+            menu.ref_by_path("Online>Transitions>Skip Swoop Down").value = ihatebe.ss
+            menu.rbp("Stand>Settings>Session Joining>Check If Join Will Succeed").value = ihatebe.cijws
+            ihatebe.sss, ihatebe.wsc, ihatebe.ss, ihatebe.cijws, ihatebe.freeze_session_id = nil, nil, nil, nil, false
+            util.toast("rejoined")
         end
-        ihatebe.player_id = players.exists(players.get_host()) and players.get_host() != players.user() ? players.get_host() : nil
-        ihatebe.sc = ihatebe.player_id != nil ? {util.get_session_code()}[2] : nil
+
+        ihatebe.player_id = players.exists(host_queue[1]) and host_queue[1] != players.user() ? host_queue[1] : nil
+        ihatebe.sc = ihatebe.player_id != nil ? util.session_code() : nil
+
         if ihatebe.player_id != nil then
-            menu.rbrp(menu.pr(players.get_host()), "Network Events>Block").value, menu.rbrp(menu.pr(players.get_host()), "Outgoing Syncs>Block").value = true, true
-            if util.in_session() and players.get_script_host() == ihatebe.player_id then
-                menu.rbrp(menu.pr(players.user()), "Friendly>Give Script Host"):trigger()
+            local players_in_queue, blocked_player_has_sh = {}, false
+            for position = 1, commandrefs[4].ihatebesyncqueue.value do
+                local player = shadovis(host_queue[position])
+                if host_queue[1] == players.user() or host_queue[position] == nil or host_queue[position] == players.user() or !player.no_syncs and memory.read_int(globals[5]()) == 66 then break end
+                if !player.ready or commandrefs[4].ihatebeignoremodders.value and players.is_marked_as_modder(host_queue[position]) or commandrefs[4].ihatebeignorefriends and (player.friend or player:fakefriend()) then continue end
+                players_in_queue[#players_in_queue + 1] = host_queue[position]
+                if player.no_syncs or memory.read_int(globals[5]()) != 66 then
+                    menu.rbrp(menu.pr(host_queue[position]), "Outgoing Syncs>Block").value, player.no_syncs = true, true
+                    blocked_player_has_sh = !blocked_player_has_sh ? players.get_script_host() == host_queue[position] : blocked_player_has_sh
+                end
             end
+
+            for players.list(false) as player_id do
+                local player = shadovis(player_id)
+                if !player.ready or !player.no_syncs or players_in_queue:find(|number| -> number == player_id) != nil then continue end
+                menu.rbrp(menu.pr(player_id), "Outgoing Syncs>Block").value, player.no_syncs = false, false
+            end
+
+            if blocked_player_has_sh and util.in_session() then menu.rbrp(menu.pr(players.user()), "Friendly>Give Script Host"):trigger() end
         end
     end
 
@@ -5875,7 +5962,8 @@ function tick_handlers.vks.func()
         tick_handlers.vks.fileupdatetimes[file_name] = io.writetime($"{main_path}{file_name}.txt")
         if !script_start then continue end
         if file_name == "players" then
-            playerinfo = json.decode(read_file($"{main_path}{file_name}.txt", "{}"))
+            local content = json.decode(read_file($"{main_path}{file_name}.txt", "{}"))
+            playerinfo = content != nil and content or playerinfo
         elseif file_name == "ped_transformations" then
             local new_list = {}
             for key, value in util.read_colons_and_tabs_file($"{main_path}{file_name}.txt") do
@@ -5896,8 +5984,12 @@ function tick_handlers.vks.func()
             ptfx_effects = new_list
 
             commandrefs[4].ptfxtrailseffect:setListActionOptions(menu.table_to_list(ptfx_effects.small, "None"))
+            commandrefs[4].hitparticle:setListActionOptions(menu.table_to_list(ptfx_effects.small, "None"))
+            commandrefs[4].killparticle:setListActionOptions(menu.table_to_list(ptfx_effects.small, "None"))
         elseif file_name == "third_party_detections" then
-            possible_detections = json.decode(read_file($"{main_path}{file_name}.txt", "{}"))
+            local content = json.decode(read_file($"{main_path}{file_name}.txt", "{}"))
+            possible_detections = content != nil and content or possible_detections
+            if content == nil then continue end
 
             for commandrefs[4].root_detectionmemory_thirdpartydetections:getChildren() as commandref do
                 if !commandref?:isValid?() then continue end
